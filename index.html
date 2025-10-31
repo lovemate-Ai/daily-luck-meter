@@ -3,40 +3,66 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Text to Speech MP3</title>
+<title>Advanced TTS Tool with MP3 Download</title>
 <style>
-body { font-family: Arial; display:flex; justify-content:center; align-items:center; height:100vh; background:#f0f0f0; }
-.container { background:#fff; padding:20px; border-radius:10px; width:350px; box-shadow:0 0 10px rgba(0,0,0,0.2); }
-textarea, select, input[type=range], button { width:100%; margin-top:10px; padding:10px; font-size:16px; border-radius:5px; border:1px solid #ccc; }
+body { font-family: Arial; display:flex; justify-content:center; align-items:center; min-height:100vh; margin:0; background:#f0f0f0; transition: background 0.3s;}
+.dark-mode { background:#1e1e1e; color:#fff; }
+.container { background:#fff; padding:20px; border-radius:10px; width:420px; box-shadow:0 0 10px rgba(0,0,0,0.2); transition: background 0.3s, color 0.3s; }
+.dark-mode .container { background:#333; color:#fff; }
+textarea, select, input[type=range], button { width:100%; margin-top:10px; padding:10px; font-size:16px; border-radius:5px; border:1px solid #ccc; transition: background 0.3s, color 0.3s; }
+.dark-mode textarea, .dark-mode select, .dark-mode input[type=range] { background:#555; color:#fff; border:1px solid #777; }
 button { background:#007bff; color:#fff; border:none; cursor:pointer; }
 button:hover { background:#0056b3; }
 label { display:block; margin-top:10px; }
+.presets { margin-top:10px; display:flex; gap:5px; flex-wrap:wrap; }
+.preset-btn { flex:1; padding:5px; font-size:14px; cursor:pointer; border-radius:5px; border:1px solid #ccc; }
+.dark-mode .preset-btn { border:1px solid #777; }
+.highlight { background-color: yellow; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>Text to Speech MP3</h2>
+<h2>Advanced Text-to-Speech</h2>
+
 <textarea id="text" placeholder="Type your text here..."></textarea>
 
 <select id="language">
-<option value="en-US">English</option>
-<option value="bn-BD">Bangla</option>
-<option value="es-ES">Spanish</option>
-<option value="fr-FR">French</option>
-<option value="ar-SA">Arabic</option>
-<option value="hi-IN">Hindi</option>
+    <option value="en-US">English</option>
+    <option value="bn-BD">Bangla</option>
+    <option value="es-ES">Spanish</option>
+    <option value="fr-FR">French</option>
+    <option value="ar-SA">Arabic</option>
+    <option value="hi-IN">Hindi</option>
+    <option value="de-DE">German</option>
+    <option value="it-IT">Italian</option>
+    <option value="ja-JP">Japanese</option>
+    <option value="ko-KR">Korean</option>
+    <option value="ru-RU">Russian</option>
+    <option value="pt-PT">Portuguese</option>
+    <option value="tr-TR">Turkish</option>
+    <option value="sv-SE">Swedish</option>
+    <option value="nl-NL">Dutch</option>
+    <option value="pl-PL">Polish</option>
 </select>
 
 <select id="voiceGender">
-<option value="female">Female Voice</option>
-<option value="male">Male Voice</option>
+    <option value="female">Female Voice</option>
+    <option value="male">Male Voice</option>
 </select>
 
 <label for="speed">Speed: <span id="speed-value">1</span></label>
 <input type="range" id="speed" min="0.5" max="2" value="1" step="0.1">
 
+<label for="pitch">Pitch: <span id="pitch-value">1</span></label>
+<input type="range" id="pitch" min="0.5" max="2" value="1" step="0.1">
+
 <button id="playBtn">Play</button>
-<button id="downloadBtn">Download MP3</button>
+<button id="downloadBtn">Download WAV</button>
+<button id="copyBtn">Copy Text</button>
+<button id="darkModeBtn">Toggle Dark Mode</button>
+
+<div class="presets"></div>
+<button id="savePresetBtn">Save Preset</button>
 </div>
 
 <script>
@@ -45,17 +71,23 @@ const languageSelect = document.getElementById('language');
 const voiceGender = document.getElementById('voiceGender');
 const speedInput = document.getElementById('speed');
 const speedValue = document.getElementById('speed-value');
+const pitchInput = document.getElementById('pitch');
+const pitchValue = document.getElementById('pitch-value');
 const playBtn = document.getElementById('playBtn');
 const downloadBtn = document.getElementById('downloadBtn');
+const copyBtn = document.getElementById('copyBtn');
+const darkModeBtn = document.getElementById('darkModeBtn');
+const presetsContainer = document.querySelector('.presets');
+const savePresetBtn = document.getElementById('savePresetBtn');
+
+let voices = [];
+function loadVoices(){ voices = speechSynthesis.getVoices(); }
+speechSynthesis.onvoiceschanged = loadVoices;
 
 speedInput.addEventListener('input', ()=> speedValue.textContent = speedInput.value);
+pitchInput.addEventListener('input', ()=> pitchValue.textContent = pitchInput.value);
 
-// Load voices
-let voices = [];
-function loadVoices() {
-    voices = speechSynthesis.getVoices();
-}
-speechSynthesis.onvoiceschanged = loadVoices;
+let audioChunks = [];
 
 // Play TTS
 playBtn.addEventListener('click', ()=>{
@@ -64,45 +96,93 @@ playBtn.addEventListener('click', ()=>{
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = languageSelect.value;
     utter.rate = parseFloat(speedInput.value);
-    // Select gender voice
-    const selectedVoices = voices.filter(v => v.lang.startsWith(utter.lang.split('-')[0]) && 
-        (voiceGender.value === 'female' ? v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') : v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('man'))
-    );
+    utter.pitch = parseFloat(pitchInput.value);
+    const selectedVoices = voices.filter(v => v.lang.startsWith(utter.lang.split('-')[0]) &&
+        (voiceGender.value==='female'? v.name.toLowerCase().includes('female')||v.name.toLowerCase().includes('woman') :
+         v.name.toLowerCase().includes('male')||v.name.toLowerCase().includes('man')));
     utter.voice = selectedVoices[0] || voices[0];
     speechSynthesis.speak(utter);
 });
 
-// Download as MP3
-downloadBtn.addEventListener('click', async ()=>{
+// Download WAV
+downloadBtn.addEventListener('click', ()=>{
     const text = textInput.value.trim();
-    if(!text) return alert('Please type something!');
-
+    if(!text) return alert('Type something first!');
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = languageSelect.value;
     utter.rate = parseFloat(speedInput.value);
-    const selectedVoices = voices.filter(v => v.lang.startsWith(utter.lang.split('-')[0]) && 
-        (voiceGender.value === 'female' ? v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') : v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('man'))
-    );
+    utter.pitch = parseFloat(pitchInput.value);
+    const selectedVoices = voices.filter(v => v.lang.startsWith(utter.lang.split('-')[0]) &&
+        (voiceGender.value==='female'? v.name.toLowerCase().includes('female')||v.name.toLowerCase().includes('woman') :
+         v.name.toLowerCase().includes('male')||v.name.toLowerCase().includes('man')));
     utter.voice = selectedVoices[0] || voices[0];
 
-    // Use SpeechSynthesis + AudioContext + Recorder.js for MP3
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const dest = audioCtx.createMediaStreamDestination();
-    const mediaRecorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm' });
+    // Create hidden audio element
+    const audio = new Audio();
+    audio.style.display='none';
+    document.body.appendChild(audio);
+    const ctx = new AudioContext();
+    const dest = ctx.createMediaStreamDestination();
+    const source = ctx.createMediaElementSource(audio);
+    source.connect(dest);
+    source.connect(ctx.destination);
+
+    const mediaRecorder = new MediaRecorder(dest.stream);
     const chunks = [];
-    mediaRecorder.ondataavailable = e => chunks.push(e.data);
-    mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/mp3' });
+    mediaRecorder.ondataavailable = e=>chunks.push(e.data);
+    mediaRecorder.onstop = ()=>{
+        const blob = new Blob(chunks, {type:'audio/wav'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'speech.mp3';
+        a.download = 'tts.wav';
         a.click();
         URL.revokeObjectURL(url);
+        audio.remove();
     };
     mediaRecorder.start();
     speechSynthesis.speak(utter);
-    utter.onend = ()=> mediaRecorder.stop();
+    utter.onend = ()=>mediaRecorder.stop();
+});
+
+// Copy
+copyBtn.addEventListener('click', ()=> navigator.clipboard.writeText(textInput.value).then(()=> alert('Copied!')));
+
+// Dark Mode
+darkModeBtn.addEventListener('click', ()=> document.body.classList.toggle('dark-mode'));
+
+// Presets
+let presets = [];
+function renderPresets(){
+    presetsContainer.innerHTML='';
+    presets.forEach((p)=>{
+        const btn = document.createElement('button');
+        btn.textContent = p.name;
+        btn.className='preset-btn';
+        btn.onclick = ()=>{
+            textInput.value=p.text;
+            languageSelect.value=p.language;
+            voiceGender.value=p.voice;
+            speedInput.value=p.speed;
+            pitchInput.value=p.pitch;
+            speedValue.textContent=p.speed;
+            pitchValue.textContent=p.pitch;
+        };
+        presetsContainer.appendChild(btn);
+    });
+}
+savePresetBtn.addEventListener('click', ()=>{
+    const name = prompt('Preset name:');
+    if(!name) return;
+    presets.push({
+        name,
+        text:textInput.value,
+        language:languageSelect.value,
+        voice:voiceGender.value,
+        speed:speedInput.value,
+        pitch:pitchInput.value
+    });
+    renderPresets();
 });
 </script>
 </body>

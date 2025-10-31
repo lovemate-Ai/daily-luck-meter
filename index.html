@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text to Speech MP3</title>
+<style>
+body { font-family: Arial; display:flex; justify-content:center; align-items:center; height:100vh; background:#f0f0f0; }
+.container { background:#fff; padding:20px; border-radius:10px; width:350px; box-shadow:0 0 10px rgba(0,0,0,0.2); }
+textarea, select, input[type=range], button { width:100%; margin-top:10px; padding:10px; font-size:16px; border-radius:5px; border:1px solid #ccc; }
+button { background:#007bff; color:#fff; border:none; cursor:pointer; }
+button:hover { background:#0056b3; }
+label { display:block; margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h2>Text to Speech MP3</h2>
+<textarea id="text" placeholder="Type your text here..."></textarea>
+
+<select id="language">
+<option value="en-US">English</option>
+<option value="bn-BD">Bangla</option>
+<option value="es-ES">Spanish</option>
+<option value="fr-FR">French</option>
+<option value="ar-SA">Arabic</option>
+<option value="hi-IN">Hindi</option>
+</select>
+
+<select id="voiceGender">
+<option value="female">Female Voice</option>
+<option value="male">Male Voice</option>
+</select>
+
+<label for="speed">Speed: <span id="speed-value">1</span></label>
+<input type="range" id="speed" min="0.5" max="2" value="1" step="0.1">
+
+<button id="playBtn">Play</button>
+<button id="downloadBtn">Download MP3</button>
+</div>
+
+<script>
+const textInput = document.getElementById('text');
+const languageSelect = document.getElementById('language');
+const voiceGender = document.getElementById('voiceGender');
+const speedInput = document.getElementById('speed');
+const speedValue = document.getElementById('speed-value');
+const playBtn = document.getElementById('playBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+
+speedInput.addEventListener('input', ()=> speedValue.textContent = speedInput.value);
+
+// Load voices
+let voices = [];
+function loadVoices() {
+    voices = speechSynthesis.getVoices();
+}
+speechSynthesis.onvoiceschanged = loadVoices;
+
+// Play TTS
+playBtn.addEventListener('click', ()=>{
+    const text = textInput.value.trim();
+    if(!text) return alert('Please type something!');
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = languageSelect.value;
+    utter.rate = parseFloat(speedInput.value);
+    // Select gender voice
+    const selectedVoices = voices.filter(v => v.lang.startsWith(utter.lang.split('-')[0]) && 
+        (voiceGender.value === 'female' ? v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') : v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('man'))
+    );
+    utter.voice = selectedVoices[0] || voices[0];
+    speechSynthesis.speak(utter);
+});
+
+// Download as MP3
+downloadBtn.addEventListener('click', async ()=>{
+    const text = textInput.value.trim();
+    if(!text) return alert('Please type something!');
+
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = languageSelect.value;
+    utter.rate = parseFloat(speedInput.value);
+    const selectedVoices = voices.filter(v => v.lang.startsWith(utter.lang.split('-')[0]) && 
+        (voiceGender.value === 'female' ? v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') : v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('man'))
+    );
+    utter.voice = selectedVoices[0] || voices[0];
+
+    // Use SpeechSynthesis + AudioContext + Recorder.js for MP3
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const dest = audioCtx.createMediaStreamDestination();
+    const mediaRecorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm' });
+    const chunks = [];
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/mp3' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'speech.mp3';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+    mediaRecorder.start();
+    speechSynthesis.speak(utter);
+    utter.onend = ()=> mediaRecorder.stop();
+});
+</script>
+</body>
+</html>
